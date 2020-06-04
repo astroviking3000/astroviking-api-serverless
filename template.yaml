@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Astro Viking
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Parameters:
+  domainName:
+    Type: String
+    Default: api.astroviking.com
+  validationDomain:
+    Type: String
+    Default: astroviking.com
+  apiName:
+    Type: String
+    Default: astroviking
+
+Resources:
+  myApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Ref apiName
+      StageName: prod
+  Mapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref myDomainName
+      RestApiId: !Ref myApi
+      Stage: prod
+  MySSLCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref domainName
+      DomainValidationOptions:
+        - DomainName: !Ref domainName
+          ValidationDomain: !Ref validationDomain
+  myDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      DomainName: !Ref domainName
+      CertificateArn: !Ref MySSLCertificate
+  MyDnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      Type: A
+      Name: !Ref domainName
+      HostedZoneId: ZHNOMHUZ7MB2T
+      AliasTarget:
+        DNSName: !GetAtt myDomainName.DistributionDomainName
+        HostedZoneId: !GetAtt myDomainName.DistributionHostedZoneId
+  mySnsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: astroVikingInfo
+      TopicName: astroVikingInfo
+      Subscription:
+          - Endpoint: info@astroviking.com
+            Protocol: email
+  roleSnsSubmit:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Description: Allow Lambda function to publish to a SNS Topic
+      RoleName: lambdaSnsSubmit
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref mySnsTopic
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Events:
+        HelloWorld:
+          Type: Api
+          Properties:
+            Path: /hello
+            Method: get
+            RestApiId:
+              Ref: myApi
+  ContactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: contact/
+      Handler: contact.lambda_handler
+      Runtime: python3.8
+      Role: !GetAtt roleSnsSubmit.Arn
+      Environment:
+        Variables:
+          TOPIC_ARN: !Ref mySnsTopic
+      Events:
+        Contact:
+          Type: Api
+          Properties:
+            Path: /contact
+            Method: post
+            RestApiId:
+              Ref: myApi
