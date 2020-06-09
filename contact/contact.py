@@ -3,6 +3,7 @@ import os
 import json
 
 topicArn = os.environ['TOPIC_ARN']
+cors_origin = os.environ['CORS_ORIGIN']
 client = boto3.client('sns')
 
 
@@ -31,5 +32,8 @@ def lambda_handler(event, context):
     print(response)
 
     return {
-        "statusCode": 202
+        "statusCode": 202,
+        "headers": {
+            "Access-Control-Allow-Origin": cors_origin
+        }
     }

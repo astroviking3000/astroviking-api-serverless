@@ -18,7 +18,9 @@ Parameters:
   apiName:
     Type: String
     Default: astroviking
-
+  corsOrigin:
+    Type: String
+    Default: "*"
 Resources:
   myApi:
     Type: AWS::Serverless::Api
@@ -28,7 +30,7 @@ Resources:
       Cors:
         AllowMethods: "'OPTIONS,GET,POST,PUT,DELETE'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'"
-        AllowOrigin: "'*'"
+        AllowOrigin: !Ref corsOrigin
   Mapping:
     Type: AWS::ApiGateway::BasePathMapping
     Properties:
@@ -97,6 +99,7 @@ Resources:
       Environment:
         Variables:
           TOPIC_ARN: !Ref mySnsTopic
+          CORS_ORIGIN: !Ref corsOrigin
       Events:
         Contact:
           Type: Api
